@@ -1,6 +1,7 @@
 import flet as ft
 from dotenv import load_dotenv
 from Service import Sort, Search
+from DuckDB import Item, User
 import os
 
 class Asset:
@@ -9,6 +10,7 @@ class Asset:
 
     Info = {
         "User" : None,
+        "Userid" : None
     }
 
     Controls = {
@@ -22,15 +24,191 @@ class Asset:
         "PasswordBar" : ft.Ref[ft.TextField](),
         "LoginButton" : ft.Ref[ft.Button](),
         "RegisterButton" : ft.Ref[ft.Button](),
+        "LogoutButton" : ft.Ref[ft.Button](),
+        "RecentItemView" : ft.Ref[ft.ListView](),
+        "FPList" : ft.Ref[ft.ListView](),
 
         # 검색
         "SearchBar" : ft.Ref[ft.TextField](),
         "SearchButton" : ft.Ref[ft.ElevatedButton](),
         "Results" : ft.Ref[ft.ListView]()
     }
+
+    RecentItems = []
+
+    # 로그인 창 재할당
+    @staticmethod
+    def Login_Tab():
+        return ft.Column(
+                controls=[
+                    # 타이틀
+                    ft.Row(
+                        height=50,
+                        controls=[
+                            ft.Container(
+                                content=ft.Text(
+                                    value="⚔️Dekaron Crafting Item Table🛠️",
+                                    size=20,
+                                    weight=ft.FontWeight.BOLD,
+                                    no_wrap=True,
+                                    expand=True
+                                ),
+                                alignment=ft.Alignment.CENTER,
+                                expand=True
+                            )
+                        ]
+                    ),
+                    ft.Row(
+                        controls=[
+                            ft.TextField(
+                                label="아이디",
+                                border_radius=ft.BorderRadius.all(10),
+                                border_color=ft.Colors.GREY_600,
+                                expand=True,
+                                ref=Asset.Controls["IDBar"]
+                            )
+                        ]
+                    ),
+                    ft.Row(
+                        controls=[
+                            ft.TextField(
+                                label="패스워드",
+                                border_radius=ft.BorderRadius.all(10),
+                                border_color=ft.Colors.GREY_600,
+                                password=True,
+                                can_reveal_password=True,
+                                expand=True,
+                                ref=Asset.Controls["PasswordBar"]
+                            )
+                        ]
+                    ),
+                    ft.Row(
+                        controls=[
+                            ft.Button(
+                                content="로그인",
+                                expand=True,
+                                ref=Asset.Controls["LoginButton"]
+                            ),
+                            ft.Button(
+                                content="회원가입",
+                                expand=True,
+                                ref=Asset.Controls["RegisterButton"]
+                            )
+                        ]
+                    )
+            ]
+        )
+
+    @classmethod
+    def User_Info(cls):
+        username = cls.Info["User"]
+        userid = cls.Info["Userid"]
+
+        # 1. 최근 탐색 목록 컨트롤 생성
+        recent_controls = []
+        if not cls.RecentItems:
+            recent_controls.append(ft.Text("최근 탐색한 아이템이 없습니다.", color=ft.Colors.GREY_500))
+        else:
+            for item in cls.RecentItems:
+                recent_controls.append(
+                    ft.ElevatedButton(
+                        item['name'],
+                        icon=ft.Icons.HISTORY,
+                        # on_click=lambda e, i=item['id']: [아이템 상세 보기 로직 연결]
+                    )
+                )
+
+        # 2. 찜 목록(Favorite Pin) 컨트롤 생성
+        fp_controls = []
+        favorite_pins = User.get_favorite_pins(userid)
+        if not favorite_pins:
+            fp_controls.append(ft.Text("찜한 목록이 없습니다.", color=ft.Colors.GREY_500))
+        else:
+            for pin in favorite_pins:
+                # Pin_Name이 없을 경우 Pin_Id로 대체 표시
+                display_name = pin['Pin_Name'] if pin['Pin_Name'] else f"저장된 항목 #{pin['Pin_Id']}"
+                fp_controls.append(
+                    ft.ElevatedButton(
+                        display_name,
+                        icon=ft.Icons.STAR,
+                        icon_color=ft.Colors.YELLOW_500,
+                        # on_click=lambda e, p_id=pin['Pin_Id']: [찜 항목 불러오기 로직 연결]
+                    )
+                )
+
+        return ft.Column(
+            controls=[
+                # 타이틀
+                ft.Row(
+                    height=50,
+                    controls=[
+                        ft.Container(
+                            content=ft.Text(
+                                value="⚔️Dekaron Crafting Item Table🛠️",
+                                size=20,
+                                weight=ft.FontWeight.BOLD,
+                                no_wrap=True,
+                                expand=True
+                            ),
+                            alignment=ft.Alignment.CENTER,
+                            expand=True
+                        )
+                    ]
+                ),
+                # 유저 이름
+                ft.Row(
+                    controls=[
+                        ft.Text(
+                            value=f"{username} (Id : {userid})",
+                            size=20,
+                            weight=ft.FontWeight.BOLD,
+                            no_wrap=True,
+                            expand=True
+                        )
+                    ]
+                ),
+                # 로그아웃 버튼
+                ft.Row(
+                    controls=[
+                        ft.Button(
+                            content=ft.Text("로그아웃"),
+                            expand=True,
+                            ref=cls.Controls["LogoutButton"]
+                        ),
+                    ]
+                ),
+                # 리스트 뷰 영역
+                ft.Row(
+                    expand=True,
+                    controls=[
+                        ft.Column(
+                            expand=True,
+                            controls=[
+                                ft.Text("🕒 최근 탐색 아이템", weight=ft.FontWeight.BOLD),
+                                ft.ListView(
+                                    expand=1,
+                                    ref=cls.Controls["RecentItemView"],
+                                    height=200,
+                                    controls=recent_controls,
+                                ),
+                                ft.Divider(),
+                                ft.Text("⭐ 찜 목록", weight=ft.FontWeight.BOLD),
+                                ft.ListView(
+                                    expand=1,
+                                    ref=cls.Controls["FPList"],
+                                    height=200,
+                                    controls=fp_controls,
+                                )
+                            ]
+                        )
+                    ]
+                )
+            ]
+        )
 # --------------------------------------------------
 #   Inner Method
 # --------------------------------------------------
+
 
     def SetRatio(isopen : str):
         SearchTab = Asset.Controls["SearchTab"].current
@@ -73,6 +251,20 @@ class Asset:
             expand=3
         )
 
+    @classmethod
+    def add_recent_item(cls, item_id, item_name):
+        """아이템을 검색/열람할 때 호출하여 최근 목록을 갱신합니다."""
+        # 이미 목록에 있다면 제거 (중복 방지)
+        cls.RecentItems = [item for item in cls.RecentItems if item['id'] != item_id]
+        # 맨 앞에 새 아이템 추가
+        cls.RecentItems.insert(0, {'id': item_id, 'name': item_name})
+        
+        # 목록이 너무 길어지는 것을 방지 (예: 최대 20개 유지)
+        if len(cls.RecentItems) > 20:
+            cls.RecentItems.pop()
+
+            
+
 # --------------------------------------------------
 #   Static Method
 # --------------------------------------------------
@@ -88,65 +280,7 @@ class Asset:
                     ref=Asset.Controls["UserTab"],
                     content=ft.Container(
                         padding=ft.Padding.all(20),
-                        content=ft.Column(
-                            controls=[
-                                # 타이틀
-                                ft.Row(
-                                    height=50,
-                                    controls=[
-                                        ft.Container(
-                                            content=ft.Text(
-                                                value="⚔️Dekaron Crafting Item Table🛠️",
-                                                size=20,
-                                                weight=ft.FontWeight.BOLD,
-                                                no_wrap=True,
-                                                expand=True
-                                            ),
-                                            alignment=ft.Alignment.CENTER,
-                                            expand=True
-                                        )
-                                    ]
-                                ),
-                                ft.Row(
-                                    controls=[
-                                        ft.TextField(
-                                            label="아이디",
-                                            border_radius=ft.BorderRadius.all(10),
-                                            border_color=ft.Colors.GREY_600,
-                                            expand=True,
-                                            ref=Asset.Controls["IDBar"]
-                                        )
-                                    ]
-                                ),
-                                ft.Row(
-                                    controls=[
-                                        ft.TextField(
-                                            label="패스워드",
-                                            border_radius=ft.BorderRadius.all(10),
-                                            border_color=ft.Colors.GREY_600,
-                                            password=True,
-                                            can_reveal_password=True,
-                                            expand=True,
-                                            ref=Asset.Controls["PasswordBar"]
-                                        )
-                                    ]
-                                ),
-                                ft.Row(
-                                    controls=[
-                                        ft.Button(
-                                            content="로그인",
-                                            expand=True,
-                                            ref=Asset.Controls["LoginButton"]
-                                        ),
-                                        ft.Button(
-                                            content="회원가입",
-                                            expand=True,
-                                            ref=Asset.Controls["RegisterButton"]
-                                        )
-                                    ]
-                                )
-                            ]
-                        )
+                        content=Asset.Login_Tab()
                     )
                 ),
 
@@ -203,7 +337,7 @@ class Asset:
         image_url_template = os.getenv("ITEM_IMAGE_URL")
         image_url = image_url_template.replace("Item_Id", str(item_id))
 
-        return ft.Card(
+        card = ft.Card(
             content=ft.Container(
                 content=ft.Row(
                     controls=[
@@ -227,17 +361,23 @@ class Asset:
                                 )
                             ]
                         ),
-                        ft.Container(
-                            content=ft.ElevatedButton(
-                                content="세부 정보",
-                                icon=ft.Icons.PLAY_ARROW,
-                                icon_color=ft.Colors.GREY_600,
-                                data={
-                                    "Item_Id" : item_id,
-                                    "Item_Name" : item_name
-                                }
-                            ),
-                            alignment=ft.Alignment.CENTER_RIGHT,
+                        ft.Row(
+                            controls=[
+                                ft. Container(
+                                    content=ft.ElevatedButton(
+                                        content="세부 정보",
+                                        icon=ft.Icons.PLAY_ARROW,
+                                        icon_color=ft.Colors.GREY_600,
+                                        data={
+                                            "Item_Id" : item_id,
+                                            "Item_Name" : item_name
+                                        }
+                                    ),
+                                    alignment=ft.Alignment.CENTER_RIGHT,
+                                    width=140
+                                )
+                            ],
+                            alignment=ft.MainAxisAlignment.END,
                             expand=True
                         )
                     ],
@@ -248,6 +388,28 @@ class Asset:
                 border_radius=ft.BorderRadius.all(10)
             )
         )
+
+        if Item.is_craftable_item(item_id) :
+            card.content.content.controls[2].controls.append(
+                ft.Container(
+                    content=ft.ElevatedButton(
+                        content="",
+                        icon=ft.Icons.STAR,
+                        icon_color=ft.Colors.GREY_600,
+                        data={
+                            "Item_Id" : item_id,
+                            "Item_Name" : item_name
+                        }
+                    ),
+                    alignment=ft.Alignment.CENTER_RIGHT,
+                    width=60
+                )
+            )
+
+
+
+        return card
+    
     
     @staticmethod
     def set_up_detail(Type : str = None):
@@ -286,7 +448,7 @@ class Asset:
                         content=ft.Image(
                             src=image_url,
                             width=100, height=100,
-                            fit=ft.BoxFit.NONE, # 구버전의 경우 ft.BoxFit.NONE 사용
+                            fit=ft.BoxFit.NONE,  
                             error_content=ft.Image(src="Assets/Placeholder.png", width=100, height=100),
                         ),
                         border=ft.Border.all(width=1, color=ft.Colors.GREY_600),
@@ -424,5 +586,138 @@ class Asset:
         return
     
     @staticmethod
-    def build_SelectFP_detail():
-        return
+    def build_SelectFP_detail(item_id: int, item_name: str, item_info):
+
+        # 1. 화면 탭 및 기본 데이터 설정
+        DetailTab = Asset.Controls["DetailTab"].current
+
+        image_url_template = os.getenv("ITEM_IMAGE_URL")
+        image_url = image_url_template.replace("Item_Id", str(item_id))
+
+        base_info_text = Sort.sort_item_base_info(item_info)
+
+        close_btn = ft.Button(
+            content="X",
+            height=50, width=50,
+            align=ft.Alignment.CENTER_RIGHT
+        )
+
+        ColumnLi = DetailTab.content.content
+        ColumnLi.controls.clear()
+        ColumnLi.alignment = None
+        
+        # 2. 기본 정보 및 이미지 블록 배치
+        list_controls = [
+            ft.Row(
+                controls=[
+                    ft.Container(
+                        content=ft.Image(
+                            src=image_url,
+                            width=100, height=100,
+                            fit=ft.BoxFit.NONE,  
+                            error_content=ft.Image(src="Assets/Placeholder.png", width=100, height=100),
+                        ),
+                        border=ft.Border.all(width=1, color=ft.Colors.GREY_600),
+                        border_radius=ft.BorderRadius.all(10)
+                    ),
+                    ft.Column(
+                        controls=[
+                            ft.Text(value=item_name, weight=ft.FontWeight.BOLD, size=25, align=ft.Alignment.TOP_LEFT),
+                            ft.Text(value=base_info_text, size=15, align=ft.Alignment.TOP_LEFT)
+                        ],
+                        alignment=ft.MainAxisAlignment.START,
+                        height=100
+                    ),
+                    ft.Container(content=close_btn, expand=True)
+                ],
+                expand=True,
+                alignment=ft.MainAxisAlignment.START
+            )
+        ]
+
+        # --- 찜 목록 UI 구성 시작 ---
+        user_id = Asset.Info.get("Userid")
+        
+        favorite_pins = User.get_favorite_pins(user_id) if user_id else []
+
+        # 1) 기존 찜 목록 선택 드롭다운
+        pin_dropdown = ft.Dropdown(
+            label="기존 찜 목록 선택",
+            options=[ft.dropdown.Option(key=str(pin["Pin_Id"]), text=pin["Pin_Name"]) for pin in favorite_pins],
+            expand=1
+        )
+
+        # 2) 새 찜 목록 이름 입력창
+        new_pin_input = ft.TextField(
+            label="새 찜 목록 이름 (선택 시 무시됨)", 
+            expand=1
+        )
+        
+        # 3) 찜 Log 텍스트
+        pin_log = ft.Text(value="", size=14, weight=ft.FontWeight.BOLD)
+
+        # 4) 찜 추가 버튼 클릭 이벤트 핸들러
+        def on_add_to_pin_click(e):
+            pin_id = pin_dropdown.value
+            new_pin_name = new_pin_input.value
+            
+            # 입력값 검증
+            if not pin_id and not new_pin_name:
+                pin_log.value = "기존 찜 목록을 선택하거나 새 이름을 입력해주세요."
+                pin_log.color = ft.Colors.RED_400
+                e.control.page.update()
+                return
+            
+            # 새 찜 목록 생성 분기 (이름 입력이 우선)
+            if not pin_id and new_pin_name:
+                # User 모듈에서 새 찜 목록을 생성하고 새로 발급된 Pin_Id를 반환한다고 가정
+                pin_id = User.create_favorite_pin(user_id, new_pin_name)
+                pin_name_to_show = new_pin_name
+            else:
+                # 기존 찜 목록 이름 추출
+                pin_name_to_show = next((p.text for p in pin_dropdown.options if p.key == pin_id), "알 수 없는 찜 목록")
+            
+            # 중복 검사 로직 (User 모듈의 메서드 가정)
+            # 스키마 상 Pin_Data는 Craftable_Item을 참조하므로, 추가적인 파라미터가 필요할 수 있습니다.
+            is_exist = User.check_item_in_pin(pin_id, user_id, item_id)
+            
+            if is_exist:
+                pin_log.value = "이미 찜 목록에 추가된 아이템입니다."
+                pin_log.color = ft.Colors.RED_400
+            else:
+                User.add_item_to_pin(pin_id, user_id, item_id)
+                pin_log.value = f"{pin_name_to_show}에 추가 되었습니다."
+                pin_log.color = ft.Colors.GREEN_400
+                Asset.Controls["UserTab"].current.content = Asset.User_Info()
+            
+            e.control.page.update()
+
+        add_btn = ft.ElevatedButton("찜 추가", on_click=on_add_to_pin_click, height=50)
+
+        # UI 레이아웃을 list_controls 리스트에 추가
+        list_controls.append(
+            ft.Container(
+                content=ft.Column(
+                    controls=[
+                        ft.Row([pin_dropdown, new_pin_input]),
+                        ft.Row([add_btn, pin_log], alignment=ft.MainAxisAlignment.START)
+                    ],
+                    spacing=10
+                ),
+                margin=ft.Margin.only(top=20)
+            )
+        )
+        # --- 찜 목록 UI 구성 끝 ---
+
+        
+
+        # 6. 최종 ListView 조립 및 삽입
+        ColumnLi.controls.append(
+            ft.ListView(
+                controls=list_controls,
+                spacing=10,
+                expand=True
+            )
+        )
+        
+        return close_btn

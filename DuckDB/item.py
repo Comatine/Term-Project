@@ -89,3 +89,20 @@ class Item:
         
         dict_list = df.to_dict('records')
         return [(row['Craft_Progress'], row['Item_Id'], row['Item_Name']) for row in dict_list]
+    
+    @staticmethod
+    def is_craftable_item(item_id: int) -> bool:
+        """해당 아이템(item_id)이 제작 아이템인지 여부를 판별합니다."""
+        conn = get_connection()
+        
+        # f-string을 피하고 안전한 파라미터화 쿼리(?)를 사용합니다.
+        query = "SELECT Craftable_Item_Id FROM Craftable_Item WHERE Craftable_Item_Id = ?"
+        
+        # 1. execute 후 .df()로 Pandas DataFrame 변환
+        # 2. .to_dict('records')로 딕셔너리 리스트 변환 (과제 필수 룰 적용)
+        result = conn.execute(query, [item_id]).df().to_dict('records')
+        
+        conn.close()
+        
+        # 조회된 결과(딕셔너리 리스트)가 비어있지 않다면 제작 아이템이므로 True 반환
+        return len(result) > 0

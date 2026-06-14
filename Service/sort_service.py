@@ -64,3 +64,4 @@ class Sort:
                 drop_dict[loc_name] = []
             drop_dict[loc_name].append(mon_name)
         return drop_dict
+    
