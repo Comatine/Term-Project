@@ -87,3 +87,40 @@ class User:
         
         conn.execute(query, [pin_id, user_id, item_id])
         conn.close()
+
+        # DuckDB/user.py 추가 코드 (User 클래스 내부)
+
+    @staticmethod
+    def get_pinned_items(pin_id: int, user_id: int) -> list:
+        """찜 목록에 담긴 목표 제작 아이템들의 이름과 ID를 조회합니다."""
+        conn = get_connection()
+        query = """
+            SELECT I.Item_Name, I.Item_Id
+            FROM Pin_Data PD
+            JOIN Item I ON PD.Craftable_Item_Id = I.Item_Id
+            WHERE PD.Pin_Id = ? AND PD.User_Id = ?
+        """
+        df = conn.execute(query, [pin_id, user_id]).df()
+        conn.close()
+        
+        result_dicts = df.to_dict('records')
+        return [(row['Item_Name'], row['Item_Id']) for row in result_dicts] if result_dicts else []
+
+    @staticmethod
+    def get_pin_materials_summary(pin_id: int, user_id: int) -> list:
+        """찜 목록에 담긴 아이템들을 제작하기 위한 모든 재료의 총합을 계산합니다."""
+        conn = get_connection()
+        query = """
+            SELECT I.Item_Name, I.Item_Id, SUM(CM.Material_Amount) as Total_Amount
+            FROM Pin_Data PD
+            JOIN Craft_Materials CM ON PD.Craft_Name = CM.Craft_Name AND PD.Craftable_Item_Id = CM.Craftable_Item_Id
+            JOIN Item I ON CM.Material_Item_Id = I.Item_Id
+            WHERE PD.Pin_Id = ? AND PD.User_Id = ?
+            GROUP BY I.Item_Name, I.Item_Id
+            ORDER BY Total_Amount DESC
+        """
+        df = conn.execute(query, [pin_id, user_id]).df()
+        conn.close()
+        
+        result_dicts = df.to_dict('records')
+        return [(row['Item_Name'], row['Item_Id'], row['Total_Amount']) for row in result_dicts] if result_dicts else []

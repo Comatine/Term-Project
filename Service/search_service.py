@@ -1,4 +1,4 @@
-from DuckDB import Item
+from DuckDB import Item, User
 
 class Search:
     
@@ -29,3 +29,13 @@ class Search:
     @staticmethod
     def get_craft_series(craft_name: str) -> list:
         return Item.get_craft_series(craft_name)
+    
+    @staticmethod
+    def get_pinned_items(pin_id: int, user_id: int) -> list:
+        """찜 목록의 아이템들을 반환합니다."""
+        return User.get_pinned_items(pin_id, user_id)
+
+    @staticmethod
+    def get_pin_materials_summary(pin_id: int, user_id: int) -> list:
+        """찜 목록 아이템 제작에 필요한 재료 총합을 반환합니다."""
+        return User.get_pin_materials_summary(pin_id, user_id)

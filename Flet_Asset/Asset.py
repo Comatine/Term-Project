@@ -37,6 +37,7 @@ class Asset:
     RecentItems = []
 
     # 로그인 창 재할당
+
     @staticmethod
     def Login_Tab():
         return ft.Column(
@@ -132,6 +133,9 @@ class Asset:
                         display_name,
                         icon=ft.Icons.STAR,
                         icon_color=ft.Colors.YELLOW_500,
+                        data={
+                            "Pin_Id" : pin['Pin_Id']
+                        }
                         # on_click=lambda e, p_id=pin['Pin_Id']: [찜 항목 불러오기 로직 연결]
                     )
                 )
@@ -209,6 +213,39 @@ class Asset:
 #   Inner Method
 # --------------------------------------------------
 
+    def logout(e):
+        Asset.Info["User"] = None
+        Asset.Info["Userid"] = None
+        
+        # 다시 로그인 화면으로 탭 복구 (초기에 구현하신 로그인 빌드 메서드 사용)
+        Asset.Controls["UserTab"].current.content = Asset.Login_Tab()
+        Asset.close_detail()
+
+        # 이벤트 재할당 
+        Asset.Controls["LoginButton"].current.on_click = Asset.logout
+        Asset.Controls["RegisterButton"].current.on_click = Asset.register
+        return
+    
+    def register(e):
+        username = Asset.Controls["IDBar"].current.value
+        password = Asset.Controls["PasswordBar"].current.value
+        
+        if not username or not password:
+            return # 빈 값 방어
+            
+        success = User.register(username, password)
+        
+        if success:
+            # 성공 시 피드백
+            Asset.Controls["IDBar"].current.value = ""
+            Asset.Controls["PasswordBar"].current.value = ""
+        else:
+            # 이미 있는 아이디인 경우 피드백
+            pass
+            
+        e.page.update()
+
+
 
     def SetRatio(isopen : str):
         SearchTab = Asset.Controls["SearchTab"].current
@@ -263,7 +300,8 @@ class Asset:
         if len(cls.RecentItems) > 20:
             cls.RecentItems.pop()
 
-            
+    def fpdetail():
+        return
 
 # --------------------------------------------------
 #   Static Method
@@ -413,6 +451,7 @@ class Asset:
     
     @staticmethod
     def set_up_detail(Type : str = None):
+        Asset.SetRatio("close")
         Asset.SetRatio("open")
         Asset.build_Loading(Type)
 
@@ -582,10 +621,6 @@ class Asset:
         return close_btn
     
     @staticmethod
-    def build_FPInfo_detail():
-        return
-    
-    @staticmethod
     def build_SelectFP_detail(item_id: int, item_name: str, item_info):
 
         # 1. 화면 탭 및 기본 데이터 설정
@@ -689,6 +724,11 @@ class Asset:
                 pin_log.value = f"{pin_name_to_show}에 추가 되었습니다."
                 pin_log.color = ft.Colors.GREEN_400
                 Asset.Controls["UserTab"].current.content = Asset.User_Info()
+                logout_btn = Asset.Controls["LogoutButton"].current
+                if logout_btn:
+                    logout_btn.on_click = Asset.logout
+                for controls in Asset.Controls["UserTab"].current.content.controls[3].controls[0].controls[4].controls:
+                    controls.on_click = Asset.fpdetail
             
             e.control.page.update()
 
@@ -712,6 +752,80 @@ class Asset:
         
 
         # 6. 최종 ListView 조립 및 삽입
+        ColumnLi.controls.append(
+            ft.ListView(
+                controls=list_controls,
+                spacing=10,
+                expand=True
+            )
+        )
+        
+        return close_btn
+    
+    @staticmethod
+    def build_FPInfo_detail(pin_id: int, user_id: int):
+        DetailTab = Asset.Controls["DetailTab"].current
+        image_url_template = os.getenv("ITEM_IMAGE_URL")
+
+        close_btn = ft.Button(
+            content="X",
+            height=50, width=50,
+            align=ft.Alignment.CENTER_RIGHT
+        )
+
+        ColumnLi = DetailTab.content.content
+        ColumnLi.controls.clear()
+        ColumnLi.alignment = None
+
+        # 상단 타이틀 및 닫기 버튼
+        list_controls = [
+            ft.Row(
+                controls=[
+                    ft.Text("📌 찜 목록 재료 요약", weight=ft.FontWeight.BOLD, size=22, expand=True),
+                    ft.Container(content=close_btn)
+                ],
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+            )
+        ]
+
+        # 1. 찜한 목표 제작 아이템 목록 표시
+        pinned_items = Search.get_pinned_items(pin_id, user_id)
+        if pinned_items:
+            list_controls.append(ft.Text("목표 제작 아이템", weight=ft.FontWeight.BOLD, size=16, color=ft.Colors.BLUE_300))
+            
+            item_rows = []
+            for item_name, item_id in pinned_items:
+                i_url = image_url_template.replace("Item_Id", str(item_id))
+                item_rows.append(
+                    ft.Row([
+                        ft.Image(src=i_url, width=30, height=30, fit=ft.BoxFit.NONE, error_content=ft.Image(src="Assets/Placeholder.png", width=30, height=30)),
+                        ft.Text(f"{item_name}", size=14)
+                    ])
+                )
+            # 가로 스크롤 혹은 Wrap으로 목표 아이템들을 깔끔하게 배치
+            list_controls.append(ft.Row(controls=item_rows, wrap=True, spacing=10))
+
+        # 2. 총 필요 재료 합산 표시
+        materials_summary = Search.get_pin_materials_summary(pin_id, user_id)
+        list_controls.append(ft.Divider(height=20, color=ft.Colors.GREY_700))
+        list_controls.append(ft.Text("총 필요 재료 합산", weight=ft.FontWeight.BOLD, size=18, color=ft.Colors.ORANGE_300))
+
+        if materials_summary:
+            mat_rows = []
+            for mat_name, mat_id, total_amount in materials_summary:
+                m_url = image_url_template.replace("Item_Id", str(mat_id))
+                mat_rows.append(
+                    ft.Row([
+                        ft.Image(src=m_url, width=40, height=40, fit=ft.BoxFit.NONE, error_content=ft.Image(src="Assets/Placeholder.png", width=40, height=40)),
+                        ft.Text(f"{mat_name}", weight=ft.FontWeight.W_500, size=15),
+                        ft.Text(f"x {total_amount}", color=ft.Colors.YELLOW_300, weight=ft.FontWeight.BOLD, size=15)
+                    ])
+                )
+            list_controls.append(ft.Column(controls=mat_rows, spacing=10))
+        else:
+            list_controls.append(ft.Text("필요한 재료가 없습니다.", size=14, color=ft.Colors.GREY_400))
+
+        # 3. 최종 ListView 삽입
         ColumnLi.controls.append(
             ft.ListView(
                 controls=list_controls,
